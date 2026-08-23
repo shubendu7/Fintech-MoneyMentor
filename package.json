@@ -1,15 +1,12 @@
 {
   "name": "backend-node",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "AI Money Mentor Backend",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@google/generative-ai": "^0.24.1",
@@ -22,5 +19,6 @@
     "mysql2": "^3.23.3",
     "pdf-parse": "^1.1.1",
     "sequelize": "^6.37.8"
-  }
+  },
+  "type": "commonjs"
 }
