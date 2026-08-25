@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Money Health Score — AI Money Mentor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #c9a84c; --teal: #2dd4a8; --dark: #0a0a0f;
+            --text: #f0f0f0; --muted: rgba(240,240,240,0.5); --border: rgba(255,255,255,0.08);
+            --danger: #f87171;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+        .grid-overlay {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 48px 48px; z-index: 0; pointer-events: none;
+        }
+        nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 40px; background: rgba(10,10,15,0.88);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(14px);
+        }
+        .logo { font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #fff; text-decoration: none; }
+        .logo span { color: var(--gold); }
+        .back-link { font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--gold); }
+
+        main { max-width: 900px; margin: 0 auto; padding: 48px 32px 80px; position: relative; z-index: 1; }
+
+        .page-header { margin-bottom: 32px; }
+        .page-eyebrow { font-size: 11px; letter-spacing: 3px; color: var(--teal); font-weight: 600; margin-bottom: 10px; }
+        .page-title { font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: #fff; }
+        .page-sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: rgba(20,20,28,0.8); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+        .panel h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 6px; font-weight: 500; }
+        .field input {
+            width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #fff;
+            font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .field input:focus { border-color: rgba(45,212,168,0.55); }
+
+        .submit-btn {
+            width: 100%; background: var(--teal); color: #000; font-weight: 700; font-size: 14px;
+            padding: 13px 0; border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+            margin-top: 6px; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .spinner {
+            width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+        }
+        .submit-btn.loading .spinner { display: inline-block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .msg-box {
+            display: none; font-size: 12.5px; padding: 10px 14px; border-radius: 8px;
+            margin-bottom: 16px; line-height: 1.5;
+        }
+        .msg-box.error { display: block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+
+        .result-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.3); font-size: 13px;
+            min-height: 300px;
+        }
+        .result-empty .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+
+        .result-content { display: none; }
+        .result-content.visible { display: block; }
+
+        .score-ring-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
+        .score-ring { position: relative; width: 140px; height: 140px; }
+        .score-ring svg { transform: rotate(-90deg); }
+        .score-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
+        .score-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+        .score-ring-text {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .score-num { font-size: 30px; font-weight: 700; color: #fff; }
+        .score-max { font-size: 11px; color: rgba(255,255,255,0.4); }
+        .score-status { font-size: 13px; font-weight: 700; margin-top: 10px; padding: 5px 14px; border-radius: 20px; }
+
+        .breakdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .breakdown-chip { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+        .breakdown-chip .label { font-size: 10px; color: rgba(255,255,255,0.45); margin-bottom: 6px; text-transform: uppercase; }
+        .breakdown-chip .bar { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+        .breakdown-chip .bar-fill { height: 100%; background: var(--teal); border-radius: 2px; }
+        .breakdown-chip .score-val { font-size: 11px; color: rgba(255,255,255,0.6); }
+
+        .recs-list { list-style: none; }
+        .recs-list li {
+            font-size: 12.5px; color: rgba(255,255,255,0.75); line-height: 1.6;
+            padding: 9px 0 9px 18px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .recs-list li::before { content: '→'; position: absolute; left: 0; color: var(--teal); }
+    </style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+
+<nav>
+    <a href="dashboard.html" class="logo"><span>AI</span> MONEY MENTOR</a>
+    <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-eyebrow">MONEY HEALTH SCORE</div>
+        <h1 class="page-title">How healthy are your finances?</h1>
+        <p class="page-sub">A quick score based on your savings, emergency fund, debt, and investments.</p>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Your Monthly Numbers</h2>
+            <div id="msgBox" class="msg-box"></div>
+            <form id="scoreForm">
+                <div class="field">
+                    <label for="monthlyIncome">Monthly Income (Rs)</label>
+                    <input type="number" id="monthlyIncome" placeholder="80000" required />
+                </div>
+                <div class="field">
+                    <label for="monthlyExpenses">Monthly Expenses (Rs)</label>
+                    <input type="number" id="monthlyExpenses" placeholder="50000" required />
+                </div>
+                <div class="field">
+                    <label for="currentSavings">Current Savings (Rs)</label>
+                    <input type="number" id="currentSavings" placeholder="150000" value="0" />
+                </div>
+                <div class="field">
+                    <label for="totalDebt">Total Debt (Rs)</label>
+                    <input type="number" id="totalDebt" placeholder="0" value="0" />
+                </div>
+                <div class="field">
+                    <label for="investments">Investments (Rs)</label>
+                    <input type="number" id="investments" placeholder="200000" value="0" />
+                </div>
+                <button type="submit" class="submit-btn" id="scoreBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Calculate My Score</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>Your Score</h2>
+            <div class="result-empty" id="resultEmpty">
+                <div class="icon">&#128154;</div>
+                <div>Fill in your monthly numbers<br/>to see your Money Health Score.</div>
+            </div>
+            <div class="result-content" id="resultContent">
+                <div class="score-ring-wrap">
+                    <div class="score-ring">
+                        <svg width="140" height="140">
+                            <circle class="score-ring-bg" cx="70" cy="70" r="60"></circle>
+                            <circle class="score-ring-fill" id="scoreRingFill" cx="70" cy="70" r="60"
+                                stroke-dasharray="377" stroke-dashoffset="377"></circle>
+                        </svg>
+                        <div class="score-ring-text">
+                            <div class="score-num" id="scoreNum">0</div>
+                            <div class="score-max">/ 100</div>
+                        </div>
+                    </div>
+                    <div class="score-status" id="scoreStatus"></div>
+                </div>
+
+                <div class="breakdown-grid" id="breakdownGrid"></div>
+
+                <h3 style="font-size:12px;color:var(--teal);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Recommendations</h3>
+                <ul class="recs-list" id="recsList"></ul>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const API_BASE = 'http://localhost:5000';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    const msgBox = document.getElementById('msgBox');
+    function clearMsg() { msgBox.className = 'msg-box'; msgBox.textContent = ''; }
+    function showMsg(text) { msgBox.className = 'msg-box error'; msgBox.textContent = text; }
+
+    const statusColors = {
+        'Excellent': '#2dd4a8',
+        'Good': '#2dd4a8',
+        'Moderate': '#c9a84c',
+        'Needs Improvement': '#fb923c',
+        'Critical': '#f87171'
+    };
+
+    document.getElementById('scoreForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearMsg();
+        const btn = document.getElementById('scoreBtn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        const payload = {
+            monthly_income: Number(document.getElementById('monthlyIncome').value),
+            monthly_expenses: Number(document.getElementById('monthlyExpenses').value),
+            current_savings: Number(document.getElementById('currentSavings').value) || 0,
+            total_debt: Number(document.getElementById('totalDebt').value) || 0,
+            investments: Number(document.getElementById('investments').value) || 0
+        };
+
+        try {
+            const res = await fetch(API_BASE + '/api/money-health/score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showMsg(data.message || 'Something went wrong. Please try again.');
+                return;
+            }
+
+            const mh = data.money_health;
+
+            document.getElementById('scoreNum').textContent = mh.score;
+            const status = document.getElementById('scoreStatus');
+            status.textContent = mh.health_status;
+            const color = statusColors[mh.health_status] || '#2dd4a8';
+            status.style.background = color + '22';
+            status.style.border = '1px solid ' + color + '55';
+            status.style.color = color;
+
+            const circumference = 377;
+            const offset = circumference - (mh.score / 100) * circumference;
+            const ring = document.getElementById('scoreRingFill');
+            ring.style.stroke = color;
+            ring.style.strokeDashoffset = offset;
+
+            const breakdownGrid = document.getElementById('breakdownGrid');
+            breakdownGrid.innerHTML = '';
+            const b = mh.score_breakdown;
+            const items = [
+                ['Savings', b.savings_score],
+                ['Emergency Fund', b.emergency_fund_score],
+                ['Debt', b.debt_score],
+                ['Investments', b.investment_score]
+            ];
+            items.forEach(function(item) {
+                const pct = (item[1] / 25) * 100;
+                const div = document.createElement('div');
+                div.className = 'breakdown-chip';
+                div.innerHTML =
+                    '<div class="label">' + item[0] + '</div>' +
+                    '<div class="bar"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+                    '<div class="score-val">' + item[1] + ' / 25</div>';
+                breakdownGrid.appendChild(div);
+            });
+
+            const recsList = document.getElementById('recsList');
+            recsList.innerHTML = '';
+            (mh.recommendations || []).forEach(function(r) {
+                const li = document.createElement('li');
+                li.textContent = r;
+                recsList.appendChild(li);
+            });
+
+            document.getElementById('resultEmpty').style.display = 'none';
+            document.getElementById('resultContent').classList.add('visible');
+
+        } catch (err) {
+            showMsg('Could not reach the server. Is the backend running?');
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>MF Portfolio X-Ray — AI Money Mentor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #c9a84c; --teal: #2dd4a8; --green: #34d399; --dark: #0a0a0f;
+            --text: #f0f0f0; --muted: rgba(240,240,240,0.5); --border: rgba(255,255,255,0.08);
+            --danger: #f87171;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+        .grid-overlay {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 48px 48px; z-index: 0; pointer-events: none;
+        }
+        nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 40px; background: rgba(10,10,15,0.88);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(14px);
+        }
+        .logo { font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #fff; text-decoration: none; }
+        .logo span { color: var(--gold); }
+        .back-link { font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--gold); }
+
+        main { max-width: 1000px; margin: 0 auto; padding: 48px 32px 80px; position: relative; z-index: 1; }
+
+        .page-header { margin-bottom: 32px; }
+        .page-eyebrow { font-size: 11px; letter-spacing: 3px; color: var(--green); font-weight: 600; margin-bottom: 10px; }
+        .page-title { font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: #fff; }
+        .page-sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+        .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: rgba(20,20,28,0.8); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+        .panel h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 18px; }
+
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 11.5px; color: rgba(255,255,255,0.55); margin-bottom: 5px; font-weight: 500; }
+        .field input {
+            width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; color: #fff;
+            font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .field input:focus { border-color: rgba(52,211,153,0.55); }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .submit-btn {
+            width: 100%; background: var(--green); color: #000; font-weight: 700; font-size: 13px;
+            padding: 12px 0; border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+            margin-top: 4px; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .spinner {
+            width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+        }
+        .submit-btn.loading .spinner { display: inline-block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .msg-box {
+            display: none; font-size: 12px; padding: 9px 12px; border-radius: 7px;
+            margin-bottom: 14px; line-height: 1.5;
+        }
+        .msg-box.error { display: block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+        .msg-box.success { display: block; background: rgba(45,212,168,0.1); border: 1px solid rgba(45,212,168,0.3); color: var(--teal); }
+
+        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .stat-chip { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+        .stat-chip .label { font-size: 10.5px; color: rgba(255,255,255,0.45); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-chip .amount { font-size: 17px; font-weight: 700; color: #fff; }
+        .stat-chip.gain-positive .amount { color: var(--teal); }
+        .stat-chip.gain-negative .amount { color: var(--danger); }
+
+        .holdings-empty { text-align: center; padding: 50px 20px; color: rgba(255,255,255,0.3); font-size: 13px; }
+        .holdings-empty .icon { font-size: 30px; margin-bottom: 10px; opacity: 0.5; }
+
+        .holding-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: 10px; margin-bottom: 10px;
+        }
+        .holding-info .fund-name { font-size: 13.5px; font-weight: 700; color: #fff; }
+        .holding-info .fund-cat { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+        .holding-figures { text-align: right; }
+        .holding-figures .val { font-size: 14px; font-weight: 700; color: #fff; }
+        .holding-figures .gain { font-size: 11px; margin-top: 2px; }
+        .gain-up { color: var(--teal); }
+        .gain-down { color: var(--danger); }
+
+        .refresh-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);
+            font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 6px;
+            cursor: pointer; font-family: inherit; transition: border-color 0.2s;
+        }
+        .refresh-btn:hover { border-color: rgba(52,211,153,0.5); color: var(--green); }
+
+        .panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .panel-header-row h2 { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+
+<nav>
+    <a href="dashboard.html" class="logo"><span>AI</span> MONEY MENTOR</a>
+    <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-eyebrow">MF PORTFOLIO X-RAY</div>
+        <h1 class="page-title">See your true portfolio performance.</h1>
+        <p class="page-sub">Add your mutual fund holdings to get instant gain/loss and category analysis.</p>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Add a Holding</h2>
+            <div id="msgBox" class="msg-box"></div>
+            <form id="holdingForm">
+                <div class="field">
+                    <label for="fundName">Fund Name</label>
+                    <input type="text" id="fundName" placeholder="Axis Bluechip Fund" required />
+                </div>
+                <div class="field">
+                    <label for="category">Category</label>
+                    <input type="text" id="category" placeholder="Large Cap" />
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="invested">Invested (Rs)</label>
+                        <input type="number" id="invested" placeholder="50000" required />
+                    </div>
+                    <div class="field">
+                        <label for="currentValue">Current Value (Rs)</label>
+                        <input type="number" id="currentValue" placeholder="62000" required />
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="units">Units</label>
+                        <input type="number" step="0.0001" id="units" placeholder="150.25" />
+                    </div>
+                    <div class="field">
+                        <label for="expenseRatio">Expense Ratio (%)</label>
+                        <input type="number" step="0.01" id="expenseRatio" placeholder="1.2" />
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn" id="addBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Add Holding</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header-row">
+                <h2>Your Portfolio</h2>
+                <button class="refresh-btn" id="refreshBtn">Refresh</button>
+            </div>
+
+            <div id="summarySection" style="display:none;">
+                <div class="summary-grid">
+                    <div class="stat-chip"><div class="label">Total Invested</div><div class="amount" id="totalInvested">Rs 0</div></div>
+                    <div class="stat-chip"><div class="label">Current Value</div><div class="amount" id="totalCurrent">Rs 0</div></div>
+                    <div class="stat-chip" id="gainChip"><div class="label">Total Gain</div><div class="amount" id="totalGain">Rs 0</div></div>
+                    <div class="stat-chip"><div class="label">Avg Expense Ratio</div><div class="amount" id="avgExpense">0%</div></div>
+                </div>
+            </div>
+
+            <div id="holdingsList"></div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const API_BASE = 'http://localhost:5000';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    const msgBox = document.getElementById('msgBox');
+    function clearMsg() { msgBox.className = 'msg-box'; msgBox.textContent = ''; }
+    function showMsg(text, type) { msgBox.className = 'msg-box ' + type; msgBox.textContent = text; }
+    function fmt(num) { return 'Rs ' + Number(num).toLocaleString('en-IN'); }
+
+    function authHeaders(extra) {
+        extra = extra || {};
+        const headers = { 'Authorization': 'Bearer ' + token };
+        for (const k in extra) headers[k] = extra[k];
+        return headers;
+    }
+
+    async function loadAnalysis() {
+        const listEl = document.getElementById('holdingsList');
+        try {
+            const res = await fetch(API_BASE + '/api/portfolio/analysis', { headers: authHeaders() });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const data = await res.json();
+
+            if (!data.summary) {
+                document.getElementById('summarySection').style.display = 'none';
+                listEl.innerHTML = '<div class="holdings-empty"><div class="icon">&#128269;</div>No holdings yet. Add your first one on the left.</div>';
+                return;
+            }
+
+            const s = data.summary;
+            document.getElementById('summarySection').style.display = 'block';
+            document.getElementById('totalInvested').textContent = fmt(s.total_invested);
+            document.getElementById('totalCurrent').textContent = fmt(s.total_current_value);
+
+            const gainChip = document.getElementById('gainChip');
+            gainChip.className = 'stat-chip ' + (Number(s.total_gain) >= 0 ? 'gain-positive' : 'gain-negative');
+            document.getElementById('totalGain').textContent = fmt(s.total_gain) + ' (' + s.total_gain_percent + '%)';
+            document.getElementById('avgExpense').textContent = s.avg_expense_ratio + '%';
+
+            listEl.innerHTML = '';
+            data.funds.forEach(function(f) {
+                const up = Number(f.gain) >= 0;
+                const row = document.createElement('div');
+                row.className = 'holding-row';
+                row.innerHTML =
+                    '<div class="holding-info">' +
+                        '<div class="fund-name">' + f.fund_name + '</div>' +
+                        '<div class="fund-cat">' + (f.category || 'Uncategorized') + '</div>' +
+                    '</div>' +
+                    '<div class="holding-figures">' +
+                        '<div class="val">' + fmt(f.current_value) + '</div>' +
+                        '<div class="gain ' + (up ? 'gain-up' : 'gain-down') + '">' + (up ? '+' : '') + fmt(f.gain) + ' (' + f.gain_percent + '%)</div>' +
+                    '</div>';
+                listEl.appendChild(row);
+            });
+
+        } catch (err) {
+            listEl.innerHTML = '<div class="holdings-empty">Could not load portfolio. Is the backend running?</div>';
+        }
+    }
+
+    document.getElementById('holdingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearMsg();
+        const btn = document.getElementById('addBtn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        const payload = {
+            fund_name: document.getElementById('fundName').value.trim(),
+            category: document.getElementById('category').value.trim(),
+            invested_amount: Number(document.getElementById('invested').value),
+            current_value: Number(document.getElementById('currentValue').value),
+            units: Number(document.getElementById('units').value) || null,
+            expense_ratio: Number(document.getElementById('expenseRatio').value) || null
+        };
+
+        try {
+            const res = await fetch(API_BASE + '/api/portfolio', {
+                method: 'POST',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showMsg(data.message || 'Something went wrong. Please try again.', 'error');
+                return;
+            }
+
+            showMsg('Holding added successfully!', 'success');
+            document.getElementById('holdingForm').reset();
+            loadAnalysis();
+
+        } catch (err) {
+            showMsg('Could not reach the server. Is the backend running?', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', loadAnalysis);
+
+    loadAnalysis();
+</script>
+</body>
+</html>

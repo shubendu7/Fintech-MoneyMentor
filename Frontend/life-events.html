@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Life Event Advisor — AI Money Mentor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #c9a84c; --teal: #2dd4a8; --indigo: #818cf8; --dark: #0a0a0f;
+            --text: #f0f0f0; --muted: rgba(240,240,240,0.5); --border: rgba(255,255,255,0.08);
+            --danger: #f87171;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+        .grid-overlay {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 48px 48px; z-index: 0; pointer-events: none;
+        }
+        nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 40px; background: rgba(10,10,15,0.88);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(14px);
+        }
+        .logo { font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #fff; text-decoration: none; }
+        .logo span { color: var(--gold); }
+        .back-link { font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--gold); }
+
+        main { max-width: 950px; margin: 0 auto; padding: 48px 32px 80px; position: relative; z-index: 1; }
+
+        .page-header { margin-bottom: 32px; }
+        .page-eyebrow { font-size: 11px; letter-spacing: 3px; color: var(--indigo); font-weight: 600; margin-bottom: 10px; }
+        .page-title { font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: #fff; }
+        .page-sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: rgba(20,20,28,0.8); border: 1px solid var(--border); border-radius: 14px; padding: 26px; }
+        .panel h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 18px; }
+
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 11.5px; color: rgba(255,255,255,0.55); margin-bottom: 5px; font-weight: 500; }
+        .field input, .field select {
+            width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; color: #fff;
+            font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .field select { cursor: pointer; }
+        .field input:focus, .field select:focus { border-color: rgba(129,140,248,0.55); }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .submit-btn {
+            width: 100%; background: var(--indigo); color: #000; font-weight: 700; font-size: 13.5px;
+            padding: 12px 0; border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+            margin-top: 4px; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .spinner {
+            width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+        }
+        .submit-btn.loading .spinner { display: inline-block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .msg-box {
+            display: none; font-size: 12px; padding: 9px 12px; border-radius: 7px;
+            margin-bottom: 14px; line-height: 1.5;
+        }
+        .msg-box.error { display: block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+
+        .result-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.3); font-size: 13px;
+            min-height: 300px;
+        }
+        .result-empty .icon { font-size: 30px; margin-bottom: 10px; opacity: 0.5; }
+
+        .result-content { display: none; max-height: 520px; overflow-y: auto; }
+        .result-content.visible { display: block; }
+
+        .advice-section { margin-bottom: 18px; }
+        .advice-section h3 {
+            font-size: 12px; font-weight: 700; color: var(--indigo);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;
+        }
+        .advice-list { list-style: none; }
+        .advice-list li {
+            font-size: 12.5px; color: rgba(255,255,255,0.75); line-height: 1.6;
+            padding: 8px 0 8px 18px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .advice-list li::before {
+            content: '→'; position: absolute; left: 0; color: var(--indigo);
+        }
+
+        .allocation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+        .alloc-chip { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+        .alloc-chip .label { font-size: 10px; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-transform: uppercase; }
+        .alloc-chip .val { font-size: 14px; font-weight: 700; color: #fff; }
+    </style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+
+<nav>
+    <a href="dashboard.html" class="logo"><span>AI</span> MONEY MENTOR</a>
+    <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-eyebrow">LIFE EVENT ADVISOR</div>
+        <h1 class="page-title">Guidance for life's big moments.</h1>
+        <p class="page-sub">Marriage, bonus, inheritance, new baby — get a personalized financial plan.</p>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Tell Us About the Event</h2>
+            <div id="msgBox" class="msg-box"></div>
+            <form id="eventForm">
+                <div class="field">
+                    <label for="eventType">Event Type</label>
+                    <select id="eventType" required>
+                        <option value="marriage">Marriage</option>
+                        <option value="bonus">Bonus</option>
+                        <option value="inheritance">Inheritance</option>
+                        <option value="new_baby">New Baby</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="eventAmount">Amount Involved (Rs)</label>
+                    <input type="number" id="eventAmount" placeholder="500000" value="0" />
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="age">Your Age</label>
+                        <input type="number" id="age" placeholder="30" value="0" />
+                    </div>
+                    <div class="field">
+                        <label for="dependents">Dependents</label>
+                        <input type="number" id="dependents" placeholder="0" value="0" />
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="annualIncome">Annual Income (Rs)</label>
+                        <input type="number" id="annualIncome" placeholder="1200000" value="0" />
+                    </div>
+                    <div class="field">
+                        <label for="monthlyExpenses">Monthly Expenses (Rs)</label>
+                        <input type="number" id="monthlyExpenses" placeholder="40000" value="0" />
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="currentSavings">Current Savings (Rs)</label>
+                        <input type="number" id="currentSavings" placeholder="200000" value="0" />
+                    </div>
+                    <div class="field">
+                        <label for="portfolioValue">Portfolio Value (Rs)</label>
+                        <input type="number" id="portfolioValue" placeholder="300000" value="0" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="riskProfile">Risk Profile</label>
+                    <select id="riskProfile">
+                        <option value="conservative">Conservative</option>
+                        <option value="moderate" selected>Moderate</option>
+                        <option value="aggressive">Aggressive</option>
+                    </select>
+                </div>
+                <button type="submit" class="submit-btn" id="eventBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Get Advice</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>Your Personalized Advice</h2>
+            <div class="result-empty" id="resultEmpty">
+                <div class="icon">&#128302;</div>
+                <div>Fill in your details and submit<br/>to get personalized advice.</div>
+            </div>
+            <div class="result-content" id="resultContent">
+                <div class="allocation-grid" id="allocationGrid"></div>
+                <div id="adviceSections"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const API_BASE = 'http://localhost:5000';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    const msgBox = document.getElementById('msgBox');
+    function clearMsg() { msgBox.className = 'msg-box'; msgBox.textContent = ''; }
+    function showMsg(text) { msgBox.className = 'msg-box error'; msgBox.textContent = text; }
+    function fmt(num) { return 'Rs ' + Number(num || 0).toLocaleString('en-IN'); }
+
+    function sectionTitle(key) {
+        const map = {
+            immediate_actions: 'Immediate Actions',
+            tax_considerations: 'Tax Considerations',
+            portfolio_actions: 'Portfolio Actions',
+            goal_actions: 'Goal Actions'
+        };
+        return map[key] || key;
+    }
+
+    document.getElementById('eventForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearMsg();
+        const btn = document.getElementById('eventBtn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        const payload = {
+            event_type: document.getElementById('eventType').value,
+            event_amount: Number(document.getElementById('eventAmount').value) || 0,
+            age: Number(document.getElementById('age').value) || 0,
+            dependents: Number(document.getElementById('dependents').value) || 0,
+            annual_income: Number(document.getElementById('annualIncome').value) || 0,
+            monthly_expenses: Number(document.getElementById('monthlyExpenses').value) || 0,
+            current_savings: Number(document.getElementById('currentSavings').value) || 0,
+            portfolio_value: Number(document.getElementById('portfolioValue').value) || 0,
+            risk_profile: document.getElementById('riskProfile').value
+        };
+
+        try {
+            const res = await fetch(API_BASE + '/api/life-events/advice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showMsg(data.message || 'Something went wrong. Please try again.');
+                return;
+            }
+
+            const advice = data.advice;
+
+            // Allocation grid
+            const allocGrid = document.getElementById('allocationGrid');
+            allocGrid.innerHTML = '';
+            if (advice.allocation_plan) {
+                const a = advice.allocation_plan;
+                const items = [
+                    ['Emergency Fund Target', a.emergency_fund_target],
+                    ['Emergency Fund Gap', a.emergency_fund_gap],
+                    ['Suggested Investment', a.suggested_investment_allocation],
+                    ['Suggested Flexible', a.suggested_flexible_allocation]
+                ];
+                items.forEach(function(item) {
+                    const div = document.createElement('div');
+                    div.className = 'alloc-chip';
+                    div.innerHTML = '<div class="label">' + item[0] + '</div><div class="val">' + fmt(item[1]) + '</div>';
+                    allocGrid.appendChild(div);
+                });
+            }
+
+            // Advice sections
+            const sectionsEl = document.getElementById('adviceSections');
+            sectionsEl.innerHTML = '';
+            if (advice.personalized_advice) {
+                Object.keys(advice.personalized_advice).forEach(function(key) {
+                    const items = advice.personalized_advice[key];
+                    if (!items || !items.length) return;
+                    const section = document.createElement('div');
+                    section.className = 'advice-section';
+                    let html = '<h3>' + sectionTitle(key) + '</h3><ul class="advice-list">';
+                    items.forEach(function(li) { html += '<li>' + li + '</li>'; });
+                    html += '</ul>';
+                    section.innerHTML = html;
+                    sectionsEl.appendChild(section);
+                });
+            }
+
+            document.getElementById('resultEmpty').style.display = 'none';
+            document.getElementById('resultContent').classList.add('visible');
+
+        } catch (err) {
+            showMsg('Could not reach the server. Is the backend running?');
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+    });
+</script>
+</body>
+</html>

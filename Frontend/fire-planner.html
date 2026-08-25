@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>FIRE Path Planner — AI Money Mentor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --gold: #c9a84c; --teal: #2dd4a8; --dark: #0a0a0f;
+            --text: #f0f0f0; --muted: rgba(240,240,240,0.5); --border: rgba(255,255,255,0.08);
+            --danger: #f87171;
+        }
+        body { font-family: 'Space Grotesk', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; }
+        .grid-overlay {
+            position: fixed; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+            background-size: 48px 48px; z-index: 0; pointer-events: none;
+        }
+        nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 40px; background: rgba(10,10,15,0.88);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+            backdrop-filter: blur(14px);
+        }
+        .logo { font-size: 15px; font-weight: 700; letter-spacing: 2px; color: #fff; text-decoration: none; }
+        .logo span { color: var(--gold); }
+        .back-link { font-size: 13px; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+        .back-link:hover { color: var(--gold); }
+
+        main { max-width: 900px; margin: 0 auto; padding: 48px 32px 80px; position: relative; z-index: 1; }
+
+        .page-header { margin-bottom: 32px; }
+        .page-eyebrow { font-size: 11px; letter-spacing: 3px; color: var(--gold); font-weight: 600; margin-bottom: 10px; }
+        .page-title { font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: #fff; }
+        .page-sub { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel { background: rgba(20,20,28,0.8); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+        .panel h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 12px; color: rgba(255,255,255,0.55); margin-bottom: 6px; font-weight: 500; }
+        .field input {
+            width: 100%; padding: 11px 14px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #fff;
+            font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s;
+        }
+        .field input:focus { border-color: rgba(201,168,76,0.55); }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .field-hint { font-size: 10.5px; color: rgba(255,255,255,0.3); margin-top: 4px; }
+
+        .submit-btn {
+            width: 100%; background: var(--gold); color: #000; font-weight: 700; font-size: 14px;
+            padding: 13px 0; border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+            margin-top: 6px; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .submit-btn:hover:not(:disabled) { opacity: 0.88; }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .spinner {
+            width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+            border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+        }
+        .submit-btn.loading .spinner { display: inline-block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .msg-box {
+            display: none; font-size: 12.5px; padding: 10px 14px; border-radius: 8px;
+            margin-bottom: 16px; line-height: 1.5;
+        }
+        .msg-box.error { display: block; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+
+        .result-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.3); font-size: 13px;
+            min-height: 300px;
+        }
+        .result-empty .icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+
+        .result-content { display: none; }
+        .result-content.visible { display: block; }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .stat-chip { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .stat-chip .label { font-size: 10.5px; color: rgba(255,255,255,0.45); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-chip .amount { font-size: 17px; font-weight: 700; color: #fff; }
+        .stat-chip.highlight { border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); }
+        .stat-chip.highlight .amount { color: var(--gold); }
+
+        .roadmap-list {
+            max-height: 240px; overflow-y: auto; margin-top: 16px;
+            border-top: 1px solid var(--border); padding-top: 12px;
+        }
+        .roadmap-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 4px; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .roadmap-row .yr { color: rgba(255,255,255,0.5); }
+        .roadmap-row .val { color: var(--teal); font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+
+<nav>
+    <a href="dashboard.html" class="logo"><span>AI</span> MONEY MENTOR</a>
+    <a href="dashboard.html" class="back-link">&larr; Back to Dashboard</a>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-eyebrow">FIRE PATH PLANNER</div>
+        <h1 class="page-title">Plan your road to financial independence.</h1>
+        <p class="page-sub">See exactly how much you need to save each month to retire on your terms.</p>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Your Details</h2>
+            <div id="msgBox" class="msg-box"></div>
+            <form id="fireForm">
+                <div class="field-row">
+                    <div class="field">
+                        <label for="currentAge">Current Age</label>
+                        <input type="number" id="currentAge" placeholder="28" required />
+                    </div>
+                    <div class="field">
+                        <label for="retirementAge">Retirement Age</label>
+                        <input type="number" id="retirementAge" placeholder="45" required />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="monthlyExpenses">Monthly Expenses (Rs)</label>
+                    <input type="number" id="monthlyExpenses" placeholder="40000" required />
+                </div>
+                <div class="field">
+                    <label for="currentSavings">Current Savings / Investments (Rs)</label>
+                    <input type="number" id="currentSavings" placeholder="500000" value="0" />
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label for="returnRate">Expected Return (%)</label>
+                        <input type="number" id="returnRate" placeholder="12" value="12" />
+                    </div>
+                    <div class="field">
+                        <label for="inflationRate">Inflation (%)</label>
+                        <input type="number" id="inflationRate" placeholder="6" value="6" />
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="withdrawalRate">Safe Withdrawal Rate (%)</label>
+                    <input type="number" id="withdrawalRate" placeholder="4" value="4" />
+                    <div class="field-hint">The classic "4% rule" is a common starting point.</div>
+                </div>
+                <button type="submit" class="submit-btn" id="fireBtn">
+                    <span class="spinner"></span>
+                    <span class="btn-text">Generate My Plan</span>
+                </button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>Your FIRE Roadmap</h2>
+            <div class="result-empty" id="resultEmpty">
+                <div class="icon">&#128293;</div>
+                <div>Fill in your details and submit<br/>to see your retirement roadmap.</div>
+            </div>
+            <div class="result-content" id="resultContent">
+                <div class="stat-grid">
+                    <div class="stat-chip highlight">
+                        <div class="label">Required Corpus</div>
+                        <div class="amount" id="requiredCorpus">Rs 0</div>
+                    </div>
+                    <div class="stat-chip highlight">
+                        <div class="label">Monthly SIP Needed</div>
+                        <div class="amount" id="monthlySip">Rs 0</div>
+                    </div>
+                    <div class="stat-chip">
+                        <div class="label">Years to Retirement</div>
+                        <div class="amount" id="yearsToGo">0</div>
+                    </div>
+                    <div class="stat-chip">
+                        <div class="label">Future Annual Expenses</div>
+                        <div class="amount" id="futureExpenses">Rs 0</div>
+                    </div>
+                </div>
+                <div class="roadmap-list" id="roadmapList"></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const API_BASE = 'http://localhost:5000';
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    const msgBox = document.getElementById('msgBox');
+    function clearMsg() { msgBox.className = 'msg-box'; msgBox.textContent = ''; }
+    function showMsg(text) { msgBox.className = 'msg-box error'; msgBox.textContent = text; }
+
+    function fmt(num) {
+        return 'Rs ' + Number(num).toLocaleString('en-IN');
+    }
+
+    document.getElementById('fireForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearMsg();
+        const btn = document.getElementById('fireBtn');
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        const payload = {
+            current_age: Number(document.getElementById('currentAge').value),
+            retirement_age: Number(document.getElementById('retirementAge').value),
+            monthly_expenses: Number(document.getElementById('monthlyExpenses').value),
+            current_savings: Number(document.getElementById('currentSavings').value) || 0,
+            expected_return_rate: Number(document.getElementById('returnRate').value) || 12,
+            inflation_rate: Number(document.getElementById('inflationRate').value) || 6,
+            withdrawal_rate: Number(document.getElementById('withdrawalRate').value) || 4
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/api/fire/plan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showMsg(data.message || 'Something went wrong. Please try again.');
+                return;
+            }
+
+            const p = data.projection;
+
+            document.getElementById('requiredCorpus').textContent = fmt(p.required_corpus);
+            document.getElementById('monthlySip').textContent = fmt(p.required_monthly_sip);
+            document.getElementById('yearsToGo').textContent = p.years_to_retirement;
+            document.getElementById('futureExpenses').textContent = fmt(p.future_annual_expenses);
+
+            const roadmapEl = document.getElementById('roadmapList');
+            roadmapEl.innerHTML = '';
+            p.roadmap.forEach(row => {
+                const div = document.createElement('div');
+                div.className = 'roadmap-row';
+                div.innerHTML = `<span class="yr">Year ${row.year} (Age ${row.age})</span><span class="val">${fmt(row.projected_corpus)}</span>`;
+                roadmapEl.appendChild(div);
+            });
+
+            document.getElementById('resultEmpty').style.display = 'none';
+            document.getElementById('resultContent').classList.add('visible');
+
+        } catch (err) {
+            showMsg('Could not reach the server. Is the backend running?');
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('loading');
+        }
+    });
+</script>
+</body>
+</html>
